@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Webcam Fullscreen</title>
+    <style>
+        /* Style to ensure the body takes full viewport and no extra space */
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Hide scrollbars */
+            height: 100%;
+            width: 100%;
+            background-color: black; /* Background color for black bars */
+        }
+
+        /* Initial style for the video */
+        #myVideo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+        }
+
+        /* Styles for the buttons and selector */
+        #webcamSelector, #fullscreenButton, #rotateButton {
+            position: absolute;
+            left: 10px;
+            z-index: 1000; /* Ensure it's above other elements */
+        }
+
+        #webcamSelector {
+            top: 10px;
+        }
+
+        #fullscreenButton {
+            top: 40px;
+        }
+
+        #rotateButton {
+            top: 70px; /* Below the fullscreen button */
+        }
+    </style>
+</head>
+<body>
+
+<video id="myVideo" autoplay></video>
+<select id="webcamSelector"></select> <!-- Webcam selector dropdown -->
+<button id="fullscreenButton">Fullscreen</button> <!-- Fullscreen button -->
+<button id="rotateButton">Rotate Video</button> <!-- Rotate video button -->
+
+<script>
+    let video = document.getElementById('myVideo');
+    let selector = document.getElementById('webcamSelector');
+    let fullscreenButton = document.getElementById('fullscreenButton');
+    let rotateButton = document.getElementById('rotateButton');
+    let isRotated = false;
+
+    function adjustVideoSize() {
+        const windowRatio = window.innerWidth / window.innerHeight;
+        const videoRatio = video.videoWidth / video.videoHeight;
+        let transform = isRotated ? 'translate(-50%, -50%) rotate(180deg)' : 'translate(-50%, -50%)';
+
+        if (windowRatio < videoRatio) {
+            video.style.width = '100%';
+            video.style.height = 'auto';
+        } else {
+            video.style.width = 'auto';
+            video.style.height = '100%';
+        }
+
+        video.style.transform = transform;
+    }
+
+    function restartWebcam() {
+        if (currentDeviceId) {
+            console.log("Attempting to restart webcam...");
+            changeWebcam(currentDeviceId);
+        } else {
+            console.log("No current device ID stored for restarting webcam.");
+        }
+    }
+
+    function changeWebcam(deviceId) {
+        console.log(`Changing webcam to device ID: ${deviceId}`);
+        currentDeviceId = deviceId;
+
+        navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } })
+            .then(stream => {
+                console.log("Webcam stream obtained. Setting as video source...");
+                video.srcObject = stream;
+                video.onloadedmetadata = adjustVideoSize;
+
+                stream.oninactive = () => {
+                    console.log("Stream became inactive. Attempting to restart...");
+                    restartWebcam();
+                };
+            })
+            .catch(err => console.error("Error accessing media device.", err));
+    }
+
+    function getWebcams() {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                stream.getTracks().forEach(track => track.stop());
+                navigator.mediaDevices.enumerateDevices()
+                    .then(devices => {
+                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        selector.innerHTML = '';
+                        videoDevices.forEach((device, index) => {
+                            let option = document.createElement('option');
+                            option.value = device.deviceId;
+                            option.text = device.label || `Camera ${index + 1}`;
+                            selector.appendChild(option);
+                        });
+                        if (videoDevices.length > 0) {
+                            changeWebcam(videoDevices[0].deviceId);
+                        }
+                    })
+                    .catch(err => console.error("Error listing devices.", err));
+            })
+            .catch(err => console.error("Error accessing media devices.", err));
+    }
+
+    selector.addEventListener('change', () => {
+        changeWebcam(selector.value);
+    });
+
+    window.addEventListener('resize', adjustVideoSize);
+
+    fullscreenButton.addEventListener('click', () => {
+        if (video.requestFullscreen) {
+            video.requestFullscreen();
+        } else if (video.mozRequestFullScreen) { /* Firefox */
+            video.mozRequestFullScreen();
+        } else if (video.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
+            video.webkitRequestFullscreen();
+        } else if (video.msRequestFullscreen) { /* IE/Edge */
+            video.msRequestFullscreen();
+        }
+    });
+
+    rotateButton.addEventListener('click', () => {
+        isRotated = !isRotated;
+        adjustVideoSize();
+    });
+
+
+    // Initialize webcam selection and setup
+    getWebcams();
+</script>
+
+</body>
+</html>
