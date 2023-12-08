@@ -53,7 +53,7 @@
     let fullscreenButton = document.getElementById('fullscreenButton');
     let rotateButton = document.getElementById('rotateButton');
     let isRotated = false;
-
+navigator.mediaDevices.getUserMedia({ video: true });
     function adjustVideoSize() {
         const windowRatio = window.innerWidth / window.innerHeight;
         const videoRatio = video.videoWidth / video.videoHeight;
