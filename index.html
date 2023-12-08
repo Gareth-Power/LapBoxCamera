@@ -31,12 +31,10 @@
             top: 10px;
         }
 
-        #fullscreenButton {
-            top: 40px;
-        }
+    
 
         #rotateButton {
-            top: 70px; /* Below the fullscreen button */
+            top: 40px; /* Below the fullscreen button */
         }
     </style>
 </head>
@@ -44,7 +42,7 @@
 
 <video id="myVideo" autoplay></video>
 <select id="webcamSelector"></select> <!-- Webcam selector dropdown -->
-<button id="fullscreenButton">Fullscreen</button> <!-- Fullscreen button -->
+
 <button id="rotateButton">Rotate Video</button> <!-- Rotate video button -->
 
 <script>
@@ -53,7 +51,7 @@
     let fullscreenButton = document.getElementById('fullscreenButton');
     let rotateButton = document.getElementById('rotateButton');
     let isRotated = false;
-navigator.mediaDevices.getUserMedia({ video: true });
+
     function adjustVideoSize() {
         const windowRatio = window.innerWidth / window.innerHeight;
         const videoRatio = video.videoWidth / video.videoHeight;
@@ -126,17 +124,7 @@ navigator.mediaDevices.getUserMedia({ video: true });
 
     window.addEventListener('resize', adjustVideoSize);
 
-    fullscreenButton.addEventListener('click', () => {
-        if (video.requestFullscreen) {
-            video.requestFullscreen();
-        } else if (video.mozRequestFullScreen) { /* Firefox */
-            video.mozRequestFullScreen();
-        } else if (video.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
-            video.webkitRequestFullscreen();
-        } else if (video.msRequestFullscreen) { /* IE/Edge */
-            video.msRequestFullscreen();
-        }
-    });
+    
 
     rotateButton.addEventListener('click', () => {
         isRotated = !isRotated;
@@ -150,3 +138,4 @@ navigator.mediaDevices.getUserMedia({ video: true });
 
 </body>
 </html>
+
