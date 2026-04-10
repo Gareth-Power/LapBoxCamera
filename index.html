@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webcam</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+video { width: 100vw; height: 100vh; object-fit: contain; }
+#controls {
+  position: fixed; bottom: 20px; right: 20px; z-index: 10;
+  display: flex; gap: 8px;
+}
+#controls button {
+  padding: 12px 24px; font-size: 16px; cursor: pointer;
+  background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px; backdrop-filter: blur(4px);
+}
+#controls button:hover { background: rgba(255,255,255,0.3); }
+#controls button.active { background: rgba(255,255,255,0.35); border-color: #fff; }
+#controls button.recording { background: rgba(220,40,40,0.45); border-color: rgba(255,60,60,0.7); }
+#controls select {
+  padding: 12px 16px; font-size: 16px; cursor: pointer;
+  background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px; backdrop-filter: blur(4px); max-width: 250px;
+}
+#controls select option { background: #222; color: #fff; }
+#info {
+  position: fixed; top: 10px; left: 10px; color: rgba(255,255,255,0.5);
+  font: 13px/1.4 monospace; z-index: 10;
+}
+</style>
+</head>
+<body>
+<video id="vid" autoplay playsinline muted></video>
+<div id="info"></div>
+<div id="controls">
+  <button id="rec">Record</button>
+  <button id="flipX">Flip X</button>
+  <button id="flipY">Flip Y</button>
+  <button id="limitHd">Limit HD</button>
+  <button id="fs">Fullscreen</button>
+  <select id="camSelect"><option>Loading...</option></select>
+</div>
+<script>
+const vid = document.getElementById('vid');
+const camSelect = document.getElementById('camSelect');
+const info = document.getElementById('info');
+const flipXBtn = document.getElementById('flipX');
+const flipYBtn = document.getElementById('flipY');
+const fsBtn = document.getElementById('fs');
+const limitHdBtn = document.getElementById('limitHd');
+const recBtn = document.getElementById('rec');
+
+let cameras = [];
+let scaleX = 1, scaleY = 1;
+let wakeLock = null;
+let limitHd = false;
+let recorder = null;
+let recordedChunks = [];
+
+// Flip controls
+function applyFlip() {
+  vid.style.transform = `scaleX(${scaleX}) scaleY(${scaleY})`;
+}
+flipXBtn.addEventListener('click', () => {
+  scaleX *= -1;
+  flipXBtn.classList.toggle('active');
+  applyFlip();
+});
+flipYBtn.addEventListener('click', () => {
+  scaleY *= -1;
+  flipYBtn.classList.toggle('active');
+  applyFlip();
+});
+
+// Fullscreen
+fsBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+// Limit HD toggle
+limitHdBtn.addEventListener('click', async () => {
+  limitHd = !limitHd;
+  limitHdBtn.classList.toggle('active', limitHd);
+  const currentId = vid.srcObject?.getVideoTracks()[0]?.getSettings().deviceId;
+  await switchToCamera(currentId);
+});
+
+// Record
+function getRecordMime() {
+  const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+
+recBtn.addEventListener('click', () => {
+  if (recorder && recorder.state === 'recording') {
+    recorder.stop();
+    return;
+  }
+
+  if (!vid.srcObject) return;
+
+  recordedChunks = [];
+  const mimeType = getRecordMime();
+  recorder = new MediaRecorder(vid.srcObject, mimeType ? { mimeType } : {});
+
+  recorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+
+  recorder.onstop = () => {
+    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(recordedChunks, { type: mimeType || 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    recBtn.classList.remove('recording');
+    recBtn.textContent = 'Record';
+  };
+
+  recorder.start();
+  recBtn.classList.add('recording');
+  recBtn.textContent = 'Stop';
+});
+
+// Wake Lock to prevent sleep
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (e) { /* user denied or not supported */ }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestWakeLock();
+});
+
+async function getCameras() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  cameras = devices.filter(d => d.kind === 'videoinput');
+}
+
+function populateSelect(activeDeviceId) {
+  camSelect.innerHTML = '';
+  cameras.forEach((cam, i) => {
+    const opt = document.createElement('option');
+    opt.value = cam.deviceId;
+    opt.textContent = cam.label || `Camera ${i + 1}`;
+    if (cam.deviceId === activeDeviceId) opt.selected = true;
+    camSelect.appendChild(opt);
+  });
+}
+
+function showInfo(track) {
+  const s = track.getSettings();
+  info.textContent = `${track.label}\n${s.width}x${s.height} @ ${s.frameRate}fps`;
+}
+
+async function switchToCamera(deviceId) {
+  if (vid.srcObject) {
+    vid.srcObject.getTracks().forEach(t => t.stop());
+    vid.srcObject = null;
+  }
+  const video = limitHd
+    ? { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 120 } }
+    : { width: { ideal: 7680 }, height: { ideal: 4320 }, frameRate: { ideal: 120 } };
+  if (deviceId) video.deviceId = { exact: deviceId };
+  vid.srcObject = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+  showInfo(vid.srcObject.getVideoTracks()[0]);
+}
+
+camSelect.addEventListener('change', () => switchToCamera(camSelect.value));
+
+navigator.mediaDevices.addEventListener('devicechange', async () => {
+  const prevId = vid.srcObject?.getVideoTracks()[0]?.getSettings().deviceId;
+  await getCameras();
+  populateSelect(prevId);
+});
+
+// Init
+(async () => {
+  await requestWakeLock();
+
+  try {
+    await switchToCamera();
+  } catch (e) {
+    info.textContent = 'Camera access denied or unavailable.\nPlease allow camera permission and reload.';
+    console.error('getUserMedia failed:', e);
+    return;
+  }
+
+  await getCameras();
+  const activeId = vid.srcObject?.getVideoTracks()[0]?.getSettings().deviceId;
+  populateSelect(activeId);
+})();
+</script>
+</body>
+</html>
