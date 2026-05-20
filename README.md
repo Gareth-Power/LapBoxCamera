@@ -1,3 +1,7 @@
+<p align="center">
+	<img src="./Thumb.png" alt="LapBoxCamera preview" width="640">
+</p>
+
 # LapBoxCamera
 
 LapBoxCamera is a lightweight browser-based camera viewer for webcam-based laparoscopic simulator boxes. It is aimed at maximizing flexibility for different webcams and capture setups while keeping interaction simple. It is designed for quickly switching cameras, flipping the image, running fullscreen, and biasing capture toward the highest available resolution instead of accidentally favoring unusual high-refresh modes.
