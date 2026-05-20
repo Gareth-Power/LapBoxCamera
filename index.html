@@ -7,9 +7,14 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-video { width: 100vw; height: 100vh; object-fit: contain; }
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+video { width: 100%; height: 100%; object-fit: contain; }
 #controls {
-  position: fixed; bottom: 20px; right: 20px; z-index: 10;
+  position: absolute; bottom: 20px; right: 20px; z-index: 10;
   display: flex; gap: 8px;
 }
 #controls button {
@@ -27,23 +32,26 @@ video { width: 100vw; height: 100vh; object-fit: contain; }
 }
 #controls select option { background: #222; color: #fff; }
 #info {
-  position: fixed; top: 10px; left: 10px; color: rgba(255,255,255,0.5);
+  position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.5);
   font: 13px/1.4 monospace; z-index: 10;
 }
 </style>
 </head>
 <body>
-<video id="vid" autoplay playsinline muted></video>
-<div id="info"></div>
-<div id="controls">
-  <button id="rec">Record</button>
-  <button id="flipX">Flip X</button>
-  <button id="flipY">Flip Y</button>
-  <button id="limitHd">Limit HD</button>
-  <button id="fs">Fullscreen</button>
-  <select id="camSelect"><option>Loading...</option></select>
+<div id="app">
+  <video id="vid" autoplay playsinline muted></video>
+  <div id="info"></div>
+  <div id="controls">
+    <button id="rec">Record</button>
+    <button id="flipX">Flip X</button>
+    <button id="flipY">Flip Y</button>
+    <button id="limitHd">Limit HD</button>
+    <button id="fs">Fullscreen</button>
+    <select id="camSelect"><option>Loading...</option></select>
+  </div>
 </div>
 <script>
+const app = document.getElementById('app');
 const vid = document.getElementById('vid');
 const camSelect = document.getElementById('camSelect');
 const info = document.getElementById('info');
@@ -77,8 +85,8 @@ flipYBtn.addEventListener('click', () => {
 
 // Fullscreen
 fsBtn.addEventListener('click', () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
+  if (document.fullscreenElement !== app) {
+    app.requestFullscreen();
   } else {
     document.exitFullscreen();
   }
@@ -164,17 +172,38 @@ function showInfo(track) {
   info.textContent = `${track.label}\n${s.width}x${s.height} @ ${s.frameRate}fps`;
 }
 
+async function preferMaxResolution(track) {
+  if (!track.getCapabilities) return;
+
+  const caps = track.getCapabilities();
+  if (!caps.width?.max || !caps.height?.max) return;
+
+  const maxWidth = limitHd ? Math.min(caps.width.max, 1920) : caps.width.max;
+  const maxHeight = limitHd ? Math.min(caps.height.max, 1080) : caps.height.max;
+
+  try {
+    await track.applyConstraints({
+      width: { ideal: maxWidth },
+      height: { ideal: maxHeight }
+    });
+  } catch (e) {
+    console.warn('Unable to apply max-resolution constraints:', e);
+  }
+}
+
 async function switchToCamera(deviceId) {
   if (vid.srcObject) {
     vid.srcObject.getTracks().forEach(t => t.stop());
     vid.srcObject = null;
   }
   const video = limitHd
-    ? { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 120 } }
-    : { width: { ideal: 7680 }, height: { ideal: 4320 }, frameRate: { ideal: 120 } };
+    ? { width: { ideal: 1920 }, height: { ideal: 1080 } }
+    : { width: { ideal: 7680 }, height: { ideal: 4320 } };
   if (deviceId) video.deviceId = { exact: deviceId };
   vid.srcObject = await navigator.mediaDevices.getUserMedia({ video, audio: false });
-  showInfo(vid.srcObject.getVideoTracks()[0]);
+  const track = vid.srcObject.getVideoTracks()[0];
+  await preferMaxResolution(track);
+  showInfo(track);
 }
 
 camSelect.addEventListener('change', () => switchToCamera(camSelect.value));
