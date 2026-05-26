@@ -33,4 +33,4 @@ Because the app is a static page, you can either host it yourself as a web app o
 
 ## License
 
-This project is licensed under GPL-3.0-only. See [LICENSE](./LICENSE).
+This project is licensed under AGPL-3.0-only. See [LICENSE](./LICENSE).
