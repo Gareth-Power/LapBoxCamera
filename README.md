@@ -19,11 +19,15 @@ The page also includes a built-in record function so you can save footage direct
 
 ## Local Use
 
-Open [index.html](./index.html) in a modern browser and allow camera access when prompted. For best results, use a Chromium-based browser with webcam permissions enabled.
+Use the GitHub Pages link for the browser version, or download the Windows `.exe` from Releases if you want an offline app. In either case, allow camera access when prompted. For best results, use a Chromium-based browser with webcam permissions enabled.
 
 ## Deployment
 
 Because the app is a static page, you can either host it yourself as a web app or use the GitHub Pages deployment for this repository.
+
+## Windows app
+
+A Windows executable is available in Releases for offline use.
 
 ## Notes
 
